@@ -1,0 +1,169 @@
+/* ---- 입장 화면 ---- */
+.join, .wait {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+}
+.join h1 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(40px, 12vw, 72px);
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--paper);
+  text-shadow: 0 2px 0 var(--gold-deep), 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+.join input {
+  font-family: var(--sans);
+  font-size: 18px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 2px solid var(--paper-edge);
+  background: var(--paper);
+  color: var(--ink);
+  text-align: center;
+  outline: none;
+}
+.join input:focus-visible { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(230, 179, 90, 0.4); }
+.seatpick { display: flex; gap: 14px; }
+.join button, .banner button {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 17px;
+  padding: 12px 22px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  color: var(--ink);
+  background: linear-gradient(180deg, #fbf6ea, var(--paper-edge));
+  box-shadow: 0 3px 0 #b9ab8e, 0 6px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+.join button:active, .banner button:active { transform: translateY(2px); box-shadow: 0 1px 0 #b9ab8e; }
+.join button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+.hint { color: var(--cream-dim); font-size: 13px; text-align: center; max-width: 280px; }
+.wait { color: var(--cream-dim); font-size: 18px; }
+
+/* ---- 보드: 우드 프레임 안의 펠트 테이블 ---- */
+.board {
+  width: min(760px, 100%);
+  margin: 12px auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-radius: 18px;
+  background:
+    radial-gradient(130% 100% at 50% 40%, var(--felt-hi), var(--felt) 70%);
+  border: 10px solid var(--wood);
+  box-shadow:
+    inset 0 0 0 2px var(--wood-edge),
+    inset 0 0 60px rgba(0, 0, 0, 0.35),
+    0 12px 40px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+}
+
+.status {
+  text-align: center;
+  font-weight: 600;
+  color: var(--cream);
+  letter-spacing: 0.01em;
+}
+.banner {
+  font-family: var(--display);
+  text-align: center;
+  background: linear-gradient(180deg, var(--gold), #d49a3e);
+  color: var(--gold-deep);
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 20px;
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+section {
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+/* 내 차례 = 내 쪽 테이블에 따뜻한 스포트라이트 */
+.me.active {
+  background: radial-gradient(120% 140% at 50% 120%, rgba(242, 200, 121, 0.22), rgba(0, 0, 0, 0.14) 70%);
+  box-shadow: inset 0 0 0 1px rgba(242, 200, 121, 0.4);
+}
+.who { font-weight: 700; margin-bottom: 8px; color: var(--cream); }
+.row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end; }
+.discards { display: flex; gap: 8px; }
+.building {
+  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+}
+.pilegroup { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pilegroup small {
+  color: var(--cream-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.building .pilegroup small { color: var(--terra); }
+.hand { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+
+/* ---- 카드: 종이 타일 ---- */
+.card {
+  width: 52px;
+  height: 72px;
+  border-radius: 9px;
+  background: linear-gradient(160deg, #fbf6ea, var(--paper) 55%, var(--paper-edge));
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: 28px;
+  font-weight: 800;
+  user-select: none;
+  border: 1px solid var(--paper-edge);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 3px 6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+/* Skip-Bo 와일드 = 빛나는 금빛 (이 게임의 시그니처) */
+.card.wild {
+  background:
+    radial-gradient(80% 80% at 50% 30%, #ffe6a8, var(--gold) 60%, #cf9636);
+  color: var(--gold-deep);
+  border-color: #b9842e;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 0 14px rgba(230, 179, 90, 0.6),
+    0 3px 6px rgba(0, 0, 0, 0.4);
+}
+/* 빈 슬롯 = 펠트에 파인 자리 */
+.card.empty {
+  background: rgba(0, 0, 0, 0.22);
+  border: 2px dashed rgba(240, 233, 218, 0.22);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+  color: transparent;
+}
+.card.sel {
+  transform: translateY(-6px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 0 0 3px var(--turn),
+    0 10px 16px rgba(0, 0, 0, 0.5);
+}
+.card:not(.empty) { cursor: pointer; }
+.card:not(.empty):not(.sel):hover { transform: translateY(-2px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .join button, .banner button { transition: none; }
+}

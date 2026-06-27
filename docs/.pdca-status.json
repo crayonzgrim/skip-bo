@@ -1,0 +1,165 @@
+{
+  "version": "2.0",
+  "lastUpdated": "2026-06-27T14:37:41.596Z",
+  "activeFeatures": [
+    "skip-bo",
+    "server",
+    ".claude"
+  ],
+  "primaryFeature": "skip-bo",
+  "features": {
+    "skip-bo": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-06-27T00:26:05.812Z",
+        "lastUpdated": "2026-06-27T14:37:41.596Z"
+      },
+      "lastFile": "/Volumes/SSD/crayonzgrim-dev/project/skip-bo/src/App.tsx"
+    },
+    "server": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-06-27T00:28:27.093Z",
+        "lastUpdated": "2026-06-27T14:37:23.417Z"
+      },
+      "lastFile": "/Volumes/SSD/crayonzgrim-dev/project/skip-bo/server/src/index.ts"
+    },
+    ".claude": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-06-27T00:37:03.231Z",
+        "lastUpdated": "2026-06-27T00:43:48.376Z"
+      },
+      "lastFile": "/Users/crayonzgrim/.claude/statusline-command.sh"
+    }
+  },
+  "pipeline": {
+    "currentPhase": 1,
+    "level": "Dynamic",
+    "phaseHistory": []
+  },
+  "session": {
+    "startedAt": "2026-06-27T00:09:33.264Z",
+    "onboardingCompleted": false,
+    "lastActivity": "2026-06-27T14:37:41.596Z"
+  },
+  "history": [
+    {
+      "timestamp": "2026-06-27T00:26:05.812Z",
+      "feature": "skip-bo",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T00:26:09.869Z",
+      "feature": "skip-bo",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T00:27:20.327Z",
+      "feature": "skip-bo",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T00:27:44.110Z",
+      "feature": "skip-bo",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T00:28:27.093Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T00:37:03.231Z",
+      "feature": ".claude",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T00:38:34.535Z",
+      "feature": ".claude",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T00:43:48.376Z",
+      "feature": ".claude",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T02:14:32.816Z",
+      "feature": "skip-bo",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T02:14:34.759Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T03:52:09.143Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T03:52:26.390Z",
+      "feature": "skip-bo",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T04:06:33.408Z",
+      "feature": "skip-bo",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T04:06:43.158Z",
+      "feature": "skip-bo",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T14:34:12.846Z",
+      "feature": "skip-bo",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T14:37:23.417Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-06-27T14:37:41.596Z",
+      "feature": "skip-bo",
+      "phase": "do",
+      "action": "updated"
+    }
+  ]
+}

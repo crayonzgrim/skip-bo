@@ -8,13 +8,40 @@ function label(c: Card | null): string {
   return c === 0 ? 'S' : String(c);
 }
 
-function CardBox({ c, onClick, sel, empty }: { c: Card | null; onClick?: () => void; sel?: boolean; empty?: boolean }) {
+// 와일드(Skip-Bo)는 고양이 사진 + 위에 SKIP-BO, 그 외엔 숫자
+function cardFace(c: Card | null) {
+  if (c === 0) {
+    return (
+      <span className="wildface">
+        <span className="wildname">SKIP-BO</span>
+        <img src="/skipbo.png" alt="Skip-Bo" draggable={false} />
+      </span>
+    );
+  }
+  return label(c);
+}
+
+const srcKey = (s: Source) => (s.from === 'hand' ? `h${s.index}` : s.from === 'discard' ? `d${s.pile}` : 's');
+
+type Drop = { kind: 'building' | 'discard'; index: number };
+
+function CardBox({
+  c, empty, drop, onDragStart, dim,
+}: {
+  c: Card | null;
+  empty?: boolean;
+  drop?: Drop;
+  onDragStart?: (e: React.PointerEvent) => void;
+  dim?: boolean;
+}) {
   return (
     <div
-      className={`card${c === 0 ? ' wild' : ''}${sel ? ' sel' : ''}${empty ? ' empty' : ''}`}
-      onClick={onClick}
+      className={`card${c === 0 ? ' wild' : ''}${empty ? ' empty' : ''}${onDragStart ? ' draggable' : ''}${dim ? ' dim' : ''}`}
+      data-drop={drop?.kind}
+      data-index={drop?.index}
+      onPointerDown={onDragStart}
     >
-      {label(c)}
+      {cardFace(c)}
     </div>
   );
 }
@@ -23,11 +50,15 @@ export default function App() {
   const [name, setName] = useState(() => sessionStorage.getItem('name') ?? '');
   const [joined, setJoined] = useState(() => sessionStorage.getItem('seat') !== null);
   const [v, setV] = useState<View | null>(null);
-  const [sel, setSel] = useState<Source | null>(null);
-  const [msg, setMsg] = useState('서버 연결 중...');
+  const [msg, setMsg] = useState('Connecting…');
+  // x/y = 떠다니는 유령 위치, ox/oy = 집어든 원래 위치. phase: 끄는 중 / 서버 응답 대기 / 원위치 복귀 애니메이션
+  const [drag, setDrag] = useState<{
+    source: Source; card: Card; x: number; y: number; ox: number; oy: number;
+    phase: 'drag' | 'pending' | 'return';
+  } | null>(null);
 
   useEffect(() => {
-    // 끊겼다 다시 붙으면(서버 재시작·와이파이·콜드스타트) 저장해 둔 좌석으로 자동 복구
+    // Reconnect (server restart / wifi blip / cold start) → rejoin the saved seat automatically.
     const rejoin = () => {
       const s = sessionStorage.getItem('seat');
       if (s !== null) socket.emit('join', { name: sessionStorage.getItem('name') ?? '', seat: Number(s) });
@@ -35,15 +66,57 @@ export default function App() {
     };
     socket.on('connect', rejoin);
     if (socket.connected) rejoin();
-    socket.on('state', (view: View) => { setV(view); setSel(null); setMsg(''); });
-    socket.on('waiting', () => setMsg('상대를 기다리는 중...'));
-    socket.on('illegal', (m: string) => setMsg('낼 수 없어요: ' + m));
-    socket.on('disconnect', () => setMsg('서버 연결 끊김 — 다시 연결 중...'));
+    // 서버가 수를 받아들이면(state) 대기 중 유령 제거, 거절하면(illegal) 원위치로 되돌림
+    socket.on('state', (view: View) => { setV(view); setMsg(''); setDrag((d) => (d && d.phase === 'pending' ? null : d)); });
+    socket.on('waiting', () => setMsg('Waiting for opponent…'));
+    socket.on('illegal', (m: string) => {
+      setMsg('Illegal: ' + m);
+      setDrag((d) => (d && d.phase === 'pending' ? { ...d, x: d.ox, y: d.oy, phase: 'return' } : d));
+    });
+    socket.on('disconnect', () => setMsg('Disconnected — reconnecting…'));
     return () => {
       socket.off('connect', rejoin); socket.off('state'); socket.off('waiting');
       socket.off('illegal'); socket.off('disconnect');
     };
   }, []);
+
+  // Pointer drag works for both mouse and touch (HTML5 DnD doesn't fire on touchscreens).
+  useEffect(() => {
+    if (drag?.phase !== 'drag') return;
+    const start = drag.source;
+    const move = (e: PointerEvent) => setDrag((d) => (d && d.phase === 'drag' ? { ...d, x: e.clientX, y: e.clientY } : d));
+    const up = (e: PointerEvent) => {
+      const el = (document.elementFromPoint(e.clientX, e.clientY) as Element | null)?.closest('[data-drop]') as HTMLElement | null;
+      let emitted = false;
+      if (el) {
+        const idx = Number(el.dataset.index);
+        if (el.dataset.drop === 'building') {
+          socket.emit('move', { type: 'play', source: start, building: idx } satisfies Move);
+          emitted = true;
+        } else if (el.dataset.drop === 'discard') {
+          if (start.from === 'hand') {
+            socket.emit('move', { type: 'discard', hand: start.index, pile: idx } satisfies Move);
+            emitted = true;
+          } else {
+            // 규칙: 스톡·버림 카드는 버릴 수 없다. 손패만 버림 가능.
+            setMsg('Only hand cards can be discarded.');
+          }
+        }
+      }
+      // 유효한 곳에 놓음 → 서버 응답 대기(pending). 아니면 → 원위치로 복귀(return).
+      setDrag((d) => (d ? (emitted ? { ...d, phase: 'pending' } : { ...d, x: d.ox, y: d.oy, phase: 'return' }) : d));
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  }, [drag?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 복귀 애니메이션(0.2s)이 끝나면 유령 제거
+  useEffect(() => {
+    if (drag?.phase !== 'return') return;
+    const t = setTimeout(() => setDrag(null), 200);
+    return () => clearTimeout(t);
+  }, [drag?.phase]);
 
   const join = (seat: number) => {
     sessionStorage.setItem('name', name);
@@ -53,23 +126,24 @@ export default function App() {
   };
   const myTurn = !!v && v.turn === v.seat && !v.winner;
 
-  const play = (building: number) => {
-    if (!sel) { setMsg('먼저 낼 카드를 고르세요.'); return; }
-    socket.emit('move', { type: 'play', source: sel, building } satisfies Move);
-  };
-  const discard = (pile: number) => {
-    if (!sel || sel.from !== 'hand') { setMsg('버릴 손패 카드를 고르세요.'); return; }
-    socket.emit('move', { type: 'discard', hand: sel.index, pile } satisfies Move);
-  };
+  const dragHandler = (source: Source, card: Card | null) =>
+    myTurn && card !== null
+      ? (e: React.PointerEvent) => {
+          e.preventDefault();
+          const r = e.currentTarget.getBoundingClientRect();
+          setDrag({ source, card, x: e.clientX, y: e.clientY, ox: r.left + r.width / 2, oy: r.top + r.height / 2, phase: 'drag' });
+        }
+      : undefined;
+  const isDim = (source: Source) => !!drag && srcKey(drag.source) === srcKey(source);
 
   if (!joined) {
     return (
       <div className="join">
         <h1>Skip-Bo</h1>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="이름" />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
         <div className="seatpick">
-          <button onClick={() => join(0)} disabled={!name}>A로 입장</button>
-          <button onClick={() => join(1)} disabled={!name}>B로 입장</button>
+          <button onClick={() => join(0)} disabled={!name}>Join as A</button>
+          <button onClick={() => join(1)} disabled={!name}>Join as B</button>
         </div>
         {msg && <p className="hint">{msg}</p>}
       </div>
@@ -81,64 +155,79 @@ export default function App() {
     <div className="board">
       {v.winner && (
         <div className="banner">
-          {v.winner === socket.id ? '🎉 승리!' : '아쉽게 졌어요'}
-          <button onClick={() => socket.emit('restart')}>다시</button>
+          {v.winner === socket.id ? '🎉 You win!' : 'You lost'}
+          <button onClick={() => socket.emit('restart')}>Play again</button>
         </div>
       )}
-      <div className="status">{myTurn ? '🟢 내 차례' : '⚪ 상대 차례'} · 더미 {v.drawCount}장{msg && ' · ' + msg}</div>
+      <div className="status">
+        <span>{myTurn ? '🟢 Your turn' : "⚪ Opponent's turn"} · Deck {v.drawCount}{msg && ' · ' + msg}</span>
+        <button className="reset" onClick={() => { if (confirm('Restart from scratch? Cards will be reshuffled for both players.')) socket.emit('restart'); }}>Reset</button>
+      </div>
 
       <section className="opp">
         <div className="who">{v.opp.name}</div>
         <div className="row">
-          <div className="pilegroup"><small>스톡 {v.opp.stock.count}</small><CardBox c={v.opp.stock.top} empty={v.opp.stock.top === null} /></div>
-          <div className="pilegroup"><small>손패 {v.opp.handCount}</small><CardBox c={null} empty /></div>
+          <div className="pilegroup"><small>Hand {v.opp.handCount}</small><CardBox c={null} empty /></div>
           <div className="discards">
             {v.opp.discard.map((d, i) => (
-              <div className="pilegroup" key={i}><small>버림{i + 1}</small><CardBox c={d.length ? d[d.length - 1] : null} empty={!d.length} /></div>
+              <div className="pilegroup" key={i}><small>Discard {i + 1}</small><CardBox c={d.length ? d[d.length - 1] : null} empty={!d.length} /></div>
             ))}
           </div>
+          <div className="pilegroup"><small>Stock {v.opp.stock.count}</small><CardBox c={v.opp.stock.top} empty={v.opp.stock.top === null} /></div>
         </div>
       </section>
 
       <section className="building">
         {v.building.map((b, i) => (
           <div className="pilegroup" key={i}>
-            <small>빌딩{i + 1} · 다음 {b.length + 1 > 12 ? '-' : b.length + 1}</small>
-            <CardBox c={b.length ? b[b.length - 1] : null} empty={!b.length} onClick={() => myTurn && play(i)} />
+            <small>Build {i + 1} · next {b.length + 1 > 12 ? '—' : b.length + 1}</small>
+            <CardBox c={b.length ? b[b.length - 1] : null} empty={!b.length} drop={{ kind: 'building', index: i }} />
           </div>
         ))}
       </section>
 
       <section className={`me${myTurn ? ' active' : ''}`}>
-        <div className="who">{v.me.name} (나)</div>
+        <div className="who">{v.me.name} (you)</div>
         <div className="row">
-          <div className="pilegroup"><small>스톡 {v.me.stock.count}</small>
-            <CardBox c={v.me.stock.top} empty={v.me.stock.top === null} sel={sel?.from === 'stock'} onClick={() => myTurn && setSel({ from: 'stock' })} />
-          </div>
           <div className="discards">
             {v.me.discard.map((d, i) => (
-              <div className="pilegroup" key={i}><small>버림{i + 1}</small>
+              <div className="pilegroup" key={i}><small>Discard {i + 1}</small>
                 <CardBox
                   c={d.length ? d[d.length - 1] : null}
                   empty={!d.length}
-                  sel={sel?.from === 'discard' && sel.pile === i}
-                  onClick={() => {
-                    if (!myTurn) return;
-                    if (sel?.from === 'hand') discard(i);
-                    else if (d.length) setSel({ from: 'discard', pile: i });
-                  }}
+                  drop={{ kind: 'discard', index: i }}
+                  onDragStart={dragHandler({ from: 'discard', pile: i }, d.length ? d[d.length - 1] : null)}
+                  dim={isDim({ from: 'discard', pile: i })}
                 />
               </div>
             ))}
           </div>
+          <div className="pilegroup"><small>Stock {v.me.stock.count}</small>
+            <CardBox
+              c={v.me.stock.top}
+              empty={v.me.stock.top === null}
+              onDragStart={dragHandler({ from: 'stock' }, v.me.stock.top)}
+              dim={isDim({ from: 'stock' })}
+            />
+          </div>
         </div>
         <div className="hand">
           {v.me.hand.map((c, i) => (
-            <CardBox key={i} c={c} sel={sel?.from === 'hand' && sel.index === i} onClick={() => myTurn && setSel({ from: 'hand', index: i })} />
+            <CardBox
+              key={i}
+              c={c}
+              onDragStart={dragHandler({ from: 'hand', index: i }, c)}
+              dim={isDim({ from: 'hand', index: i })}
+            />
           ))}
         </div>
-        <div className="hint">카드 선택 → 빌딩에 내기 · 손패 선택 → 버림더미 클릭해 턴 종료</div>
       </section>
+
+      {drag && (
+        <div className={`card ghost${drag.card === 0 ? ' wild' : ''}${drag.phase === 'return' ? ' returning' : ''}`} style={{ left: drag.x, top: drag.y }}>
+          {cardFace(drag.card)}
+        </div>
+      )}
     </div>
   );
 }

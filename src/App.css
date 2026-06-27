@@ -68,11 +68,29 @@
 }
 
 .status {
-  text-align: center;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
   font-weight: 600;
   color: var(--cream);
   letter-spacing: 0.01em;
 }
+.reset {
+  position: absolute;
+  right: 0;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(240, 233, 218, 0.3);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--cream);
+  cursor: pointer;
+}
+.reset:hover { background: var(--terra); border-color: var(--terra); color: #fff; }
 .banner {
   font-family: var(--display);
   text-align: center;
@@ -136,16 +154,34 @@ section {
     0 3px 6px rgba(0, 0, 0, 0.4);
   transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
-/* Skip-Bo 와일드 = 빛나는 금빛 (이 게임의 시그니처) */
+/* Skip-Bo 와일드 = 고양이 사진 + 금빛 테두리 (이 게임의 시그니처) */
 .card.wild {
-  background:
-    radial-gradient(80% 80% at 50% 30%, #ffe6a8, var(--gold) 60%, #cf9636);
-  color: var(--gold-deep);
+  padding: 0;
+  overflow: hidden;
+  background: var(--gold);
   border-color: #b9842e;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
     0 0 14px rgba(230, 179, 90, 0.6),
     0 3px 6px rgba(0, 0, 0, 0.4);
+}
+.wildface { display: flex; flex-direction: column; width: 100%; height: 100%; }
+.wildname {
+  flex: none;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--gold-deep);
+  background: linear-gradient(180deg, #ffe6a8, var(--gold));
+  padding: 2px 0;
+  line-height: 1;
+}
+.wildface img {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: cover;
+  display: block;
 }
 /* 빈 슬롯 = 펠트에 파인 자리 */
 .card.empty {
@@ -154,15 +190,30 @@ section {
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
   color: transparent;
 }
-.card.sel {
-  transform: translateY(-6px);
+/* 드래그 가능한 카드 (마우스+터치) */
+.card.draggable { cursor: grab; touch-action: none; }
+.card.draggable:hover { transform: translateY(-3px); }
+.card.draggable:active { cursor: grabbing; }
+/* 드래그 중인 원본은 자리만 흐리게 남김 */
+.card.dim { opacity: 0.3; }
+/* 포인터를 따라다니는 유령 카드 */
+.card.ghost {
+  position: fixed;
+  margin: 0;
+  transform: translate(-50%, -50%) rotate(-4deg) scale(1.08);
+  pointer-events: none;
+  z-index: 50;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.7),
     0 0 0 3px var(--turn),
-    0 10px 16px rgba(0, 0, 0, 0.5);
+    0 16px 28px rgba(0, 0, 0, 0.6);
 }
-.card:not(.empty) { cursor: pointer; }
-.card:not(.empty):not(.sel):hover { transform: translateY(-2px); }
+.card.ghost.wild { box-shadow: 0 0 22px rgba(230, 179, 90, 0.8), 0 16px 28px rgba(0, 0, 0, 0.6); }
+/* 잘못 놓으면 원래 자리로 스르륵 복귀 */
+.card.ghost.returning {
+  transition: left 0.2s ease, top 0.2s ease, transform 0.2s ease;
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .card, .join button, .banner button { transition: none; }

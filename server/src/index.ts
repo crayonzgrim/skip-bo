@@ -33,7 +33,14 @@ function startGame() {
   }
 }
 
+// 좌석 점유 상태를 모두에게 알림 → 입장 화면이 찬 좌석을 비활성화하는 데 사용
+function pushSeats() {
+  io.emit('seats', { a: !!seats[0], b: !!seats[1], playing: !!game });
+}
+
 io.on('connection', (socket) => {
+  socket.emit('seats', { a: !!seats[0], b: !!seats[1], playing: !!game });
+
   // seat 0 = A, seat 1 = B. 그 좌석에 마지막으로 들어온 사람이 차지(last-writer-wins).
   // 재접속 시 옛 소켓의 disconnect 처리가 늦어도 그냥 새 소켓이 좌석을 되찾으므로 끊겨도 안전.
   socket.on('join', ({ name, seat }: { name: string; seat: number }) => {
@@ -46,10 +53,12 @@ io.on('connection', (socket) => {
       game.players[seat].id = socket.id;
       game.players[seat].name = names[seat];
       io.to(socket.id).emit('state', view(game, seat));
-      return;
+    } else if (seats[0] && seats[1]) {
+      startGame();
+    } else {
+      socket.emit('waiting');
     }
-    if (seats[0] && seats[1]) startGame();
-    else socket.emit('waiting');
+    pushSeats();
   });
 
   socket.on('move', (m: Move) => {
@@ -59,11 +68,12 @@ io.on('connection', (socket) => {
     catch (e) { socket.emit('illegal', (e as Error).message); }
   });
 
-  socket.on('restart', startGame);
+  socket.on('restart', () => { startGame(); pushSeats(); });
 
   socket.on('disconnect', () => {
     const seat = seatOf(socket.id);
     if (seat !== -1) seats[seat] = null; // game은 유지 → 같은 좌석으로 재접속 시 복구
+    pushSeats();
   });
 });
 

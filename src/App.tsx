@@ -51,6 +51,7 @@ export default function App() {
   const [joined, setJoined] = useState(() => sessionStorage.getItem('seat') !== null);
   const [v, setV] = useState<View | null>(null);
   const [msg, setMsg] = useState('Connecting…');
+  const [seats, setSeats] = useState<{ a: boolean; b: boolean; playing: boolean } | null>(null);
   // x/y = 떠다니는 유령 위치, ox/oy = 집어든 원래 위치. phase: 끄는 중 / 서버 응답 대기 / 원위치 복귀 애니메이션
   const [drag, setDrag] = useState<{
     source: Source; card: Card; x: number; y: number; ox: number; oy: number;
@@ -74,11 +75,22 @@ export default function App() {
       setDrag((d) => (d && d.phase === 'pending' ? { ...d, x: d.ox, y: d.oy, phase: 'return' } : d));
     });
     socket.on('disconnect', () => setMsg('Disconnected — reconnecting…'));
+    socket.on('seats', (info: { a: boolean; b: boolean; playing: boolean }) => setSeats(info));
     return () => {
       socket.off('connect', rejoin); socket.off('state'); socket.off('waiting');
-      socket.off('illegal'); socket.off('disconnect');
+      socket.off('illegal'); socket.off('disconnect'); socket.off('seats');
     };
   }, []);
+
+  // 자가 복구: 입장했는데 아직 보드 상태를 못 받으면(좌석 ID 꼬임/브로드캐스트 누락) 2초마다 재입장
+  useEffect(() => {
+    if (!joined || v) return;
+    const id = setInterval(() => {
+      const s = sessionStorage.getItem('seat');
+      if (s !== null) socket.emit('join', { name: sessionStorage.getItem('name') ?? '', seat: Number(s) });
+    }, 2000);
+    return () => clearInterval(id);
+  }, [joined, v]);
 
   // Pointer drag works for both mouse and touch (HTML5 DnD doesn't fire on touchscreens).
   useEffect(() => {
@@ -142,9 +154,10 @@ export default function App() {
         <h1>Skip-Bo</h1>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
         <div className="seatpick">
-          <button onClick={() => join(0)} disabled={!name}>Join as A</button>
-          <button onClick={() => join(1)} disabled={!name}>Join as B</button>
+          <button onClick={() => join(0)} disabled={!name || seats?.a}>Join as A{seats?.a ? ' · in use' : ''}</button>
+          <button onClick={() => join(1)} disabled={!name || seats?.b}>Join as B{seats?.b ? ' · in use' : ''}</button>
         </div>
+        {seats?.a && seats?.b && <p className="hint">Both seats taken — the game is full.</p>}
         {msg && <p className="hint">{msg}</p>}
       </div>
     );

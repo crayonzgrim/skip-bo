@@ -80,6 +80,13 @@ io.on('connection', (socket) => {
 
   socket.on('restart', () => { startGame(); pushSeats(); });
 
+  // 방 초기화: A·B 좌석과 게임을 강제로 비운다(좌석 꼬임 비상 탈출).
+  socket.on('clearSeats', () => {
+    seats[0] = null; seats[1] = null; game = null;
+    io.emit('reset'); // 보드에 있던 사람도 입장 화면으로
+    pushSeats();
+  });
+
   socket.on('disconnect', () => {
     const seat = seatOf(socket.id);
     if (seat !== -1) seats[seat] = null; // game은 유지 → 같은 좌석으로 재접속 시 복구

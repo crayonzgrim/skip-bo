@@ -46,6 +46,18 @@
 .join button:active, .banner button:active { transform: translateY(2px); box-shadow: 0 1px 0 #b9ab8e; }
 .join button:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 .hint { color: var(--cream-dim); font-size: 13px; text-align: center; max-width: 280px; }
+.reset-room {
+  margin-top: 12px;
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 7px 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(240, 233, 218, 0.25);
+  background: transparent;
+  color: var(--cream-dim);
+  cursor: pointer;
+}
+.reset-room:hover { background: var(--terra); border-color: var(--terra); color: #fff; }
 .wait { color: var(--cream-dim); font-size: 18px; }
 
 /* ---- 보드: 우드 프레임 안의 펠트 테이블 ---- */

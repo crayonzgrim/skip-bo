@@ -76,9 +76,10 @@ export default function App() {
     });
     socket.on('disconnect', () => setMsg('Disconnected — reconnecting…'));
     socket.on('seats', (info: { a: boolean; b: boolean; playing: boolean }) => setSeats(info));
+    socket.on('reset', () => { sessionStorage.removeItem('seat'); setJoined(false); setV(null); setMsg(''); });
     return () => {
       socket.off('connect', rejoin); socket.off('state'); socket.off('waiting');
-      socket.off('illegal'); socket.off('disconnect'); socket.off('seats');
+      socket.off('illegal'); socket.off('disconnect'); socket.off('seats'); socket.off('reset');
     };
   }, []);
 
@@ -159,6 +160,12 @@ export default function App() {
         </div>
         {(seats?.a || seats?.b) && <p className="hint">"in use" is just a hint — you can still pick it to take over.</p>}
         {msg && <p className="hint">{msg}</p>}
+        <button
+          className="reset-room"
+          onClick={() => { if (confirm('Reset the room? This frees both A and B and ends any game in progress.')) socket.emit('clearSeats'); }}
+        >
+          Reset room (free A & B)
+        </button>
       </div>
     );
   }

@@ -154,10 +154,10 @@ export default function App() {
         <h1>Skip-Bo</h1>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
         <div className="seatpick">
-          <button onClick={() => join(0)} disabled={!name || seats?.a}>Join as A{seats?.a ? ' · in use' : ''}</button>
-          <button onClick={() => join(1)} disabled={!name || seats?.b}>Join as B{seats?.b ? ' · in use' : ''}</button>
+          <button onClick={() => join(0)} disabled={!name}>Join as A{seats?.a ? ' · in use' : ''}</button>
+          <button onClick={() => join(1)} disabled={!name}>Join as B{seats?.b ? ' · in use' : ''}</button>
         </div>
-        {seats?.a && seats?.b && <p className="hint">Both seats taken — the game is full.</p>}
+        {(seats?.a || seats?.b) && <p className="hint">"in use" is just a hint — you can still pick it to take over.</p>}
         {msg && <p className="hint">{msg}</p>}
       </div>
     );

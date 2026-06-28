@@ -25,21 +25,31 @@ function broadcast() {
   }
 }
 
+// 좀비 좌석 청소: 실제로 연결이 끊긴(소켓 레지스트리에 없는) 좌석을 비운다.
+// Render는 인스턴스가 계속 살아있어 메모리 좌석이 안 지워지므로, disconnect를 놓친 좌석을 여기서 회수.
+function sweep() {
+  for (let s = 0; s < 2; s++) {
+    if (seats[s] && !io.sockets.sockets.has(seats[s]!)) seats[s] = null;
+  }
+}
+
 // 둘 다 앉으면 '새' 게임 시작 (재시작 버튼/초기 입장용)
 function startGame() {
+  sweep();
   if (seats[0] && seats[1]) {
     game = newGame({ id: seats[0]!, name: names[0] }, { id: seats[1]!, name: names[1] });
     broadcast();
   }
 }
 
-// 좌석 점유 상태를 모두에게 알림 → 입장 화면이 찬 좌석을 비활성화하는 데 사용
+// 좌석 점유 상태를 모두에게 알림 → 입장 화면의 'in use' 표시에 사용
 function pushSeats() {
+  sweep();
   io.emit('seats', { a: !!seats[0], b: !!seats[1], playing: !!game });
 }
 
 io.on('connection', (socket) => {
-  socket.emit('seats', { a: !!seats[0], b: !!seats[1], playing: !!game });
+  pushSeats();
 
   // seat 0 = A, seat 1 = B. 그 좌석에 마지막으로 들어온 사람이 차지(last-writer-wins).
   // 재접속 시 옛 소켓의 disconnect 처리가 늦어도 그냥 새 소켓이 좌석을 되찾으므로 끊겨도 안전.

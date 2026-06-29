@@ -73,7 +73,8 @@ io.on('connection', (socket) => {
 
   socket.on('move', (m: Move) => {
     const seat = seatOf(socket.id);
-    if (seat === -1 || !game) return;
+    // 좌석/게임이 없으면 반드시 응답해야 클라이언트 유령이 'pending'에 멈추지 않는다.
+    if (seat === -1 || !game) { socket.emit('illegal', 'not in game — rejoin'); return; }
     try { apply(game, seat, m); broadcast(); }
     catch (e) { socket.emit('illegal', (e as Error).message); }
   });

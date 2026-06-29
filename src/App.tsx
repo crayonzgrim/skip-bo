@@ -54,6 +54,36 @@ function CardBox({
   );
 }
 
+// 디스카드 더미: 카드가 위로 조금씩 겹쳐 쌓여 묻힌 카드의 윗단(숫자)이 보인다.
+// 무스크롤 유지를 위해 최근 4장만 표시(맨 위=마지막=조작 대상).
+function DiscardPile({
+  pile, drop, onDragStart, dim,
+}: {
+  pile: Card[];
+  drop?: Drop;
+  onDragStart?: (e: React.PointerEvent) => void;
+  dim?: boolean;
+}) {
+  const shown = pile.slice(-4);
+  const n = Math.max(shown.length, 1);
+  return (
+    <div className="discardpile" data-drop={drop?.kind} data-index={drop?.index} style={{ '--n': n } as React.CSSProperties}>
+      {shown.length === 0 ? (
+        <div className="stackcard" style={{ '--i': 0 } as React.CSSProperties}><CardBox c={null} empty /></div>
+      ) : (
+        shown.map((c, idx) => {
+          const isTop = idx === shown.length - 1;
+          return (
+            <div className="stackcard" style={{ '--i': idx } as React.CSSProperties} key={idx}>
+              <CardBox c={c} onDragStart={isTop ? onDragStart : undefined} dim={isTop ? dim : undefined} />
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [name, setName] = useState(() => sessionStorage.getItem('name') ?? '');
   const [joined, setJoined] = useState(() => sessionStorage.getItem('seat') !== null);
@@ -146,6 +176,13 @@ export default function App() {
     return () => clearTimeout(t);
   }, [drag?.phase]);
 
+  // 워치독: 서버 응답(state/illegal)이 끝내 안 오면 4초 후 강제 복귀 → 유령이 공중에 영구히 멈추지 않게
+  useEffect(() => {
+    if (drag?.phase !== 'pending') return;
+    const t = setTimeout(() => setDrag((d) => (d && d.phase === 'pending' ? { ...d, x: d.ox, y: d.oy, phase: 'return' } : d)), 4000);
+    return () => clearTimeout(t);
+  }, [drag?.phase]);
+
   const join = (seat: number) => {
     sessionStorage.setItem('name', name);
     sessionStorage.setItem('seat', String(seat));
@@ -153,6 +190,7 @@ export default function App() {
     setJoined(true);
   };
   const myTurn = !!v && v.turn === v.seat && !v.winner;
+  const oppTurn = !!v && v.turn !== v.seat && !v.winner;
 
   const dragHandler = (source: Source, card: Card | null) =>
     myTurn && card !== null
@@ -196,15 +234,18 @@ export default function App() {
       )}
       <div className="status">
         <span>{myTurn ? '🟢 Your turn' : "⚪ Opponent's turn"} · Deck {v.drawCount}{msg && ' · ' + msg}</span>
-        <button className="reset" onClick={() => { if (confirm('Restart from scratch? Cards will be reshuffled for both players.')) socket.emit('restart'); }}>Reset</button>
+        <div className="status-actions">
+          <button className="reset" onClick={() => { if (confirm('Restart from scratch? Cards will be reshuffled for both players.')) socket.emit('restart'); }}>Reset</button>
+          <button className="reset" onClick={() => { if (confirm('처음 화면으로? 두 좌석(A·B)을 비우고 진행 중인 게임을 끝냅니다.')) socket.emit('clearSeats'); }}>처음으로</button>
+        </div>
       </div>
 
-      <section className="opp">
-        <div className="who">{v.opp.name}</div>
+      <section className={`opp${oppTurn ? ' active' : ''}`}>
+        <div className="who">{v.opp.name}{oppTurn && <span className="turnbadge">● 현재 턴</span>}</div>
         <div className="row">
           <div className="discards">
             {v.opp.discard.map((d, i) => (
-              <div className="pilegroup" key={i}><CardBox c={d.length ? d[d.length - 1] : null} empty={!d.length} /></div>
+              <DiscardPile key={i} pile={d} />
             ))}
           </div>
           <div className="pilegroup"><small>Stock {v.opp.stock.count}</small><CardBox c={v.opp.stock.top} empty={v.opp.stock.top === null} /></div>
@@ -220,19 +261,17 @@ export default function App() {
       </section>
 
       <section className={`me${myTurn ? ' active' : ''}`}>
-        <div className="who">{v.me.name} (you)</div>
+        <div className="who">{v.me.name} (you){myTurn && <span className="turnbadge">● 현재 턴</span>}</div>
         <div className="row">
           <div className="discards">
             {v.me.discard.map((d, i) => (
-              <div className="pilegroup" key={i}>
-                <CardBox
-                  c={d.length ? d[d.length - 1] : null}
-                  empty={!d.length}
-                  drop={{ kind: 'discard', index: i }}
-                  onDragStart={dragHandler({ from: 'discard', pile: i }, d.length ? d[d.length - 1] : null)}
-                  dim={isDim({ from: 'discard', pile: i })}
-                />
-              </div>
+              <DiscardPile
+                key={i}
+                pile={d}
+                drop={{ kind: 'discard', index: i }}
+                onDragStart={dragHandler({ from: 'discard', pile: i }, d.length ? d[d.length - 1] : null)}
+                dim={isDim({ from: 'discard', pile: i })}
+              />
             ))}
           </div>
           <div className="pilegroup"><small>Stock {v.me.stock.count}</small>

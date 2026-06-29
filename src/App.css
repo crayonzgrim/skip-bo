@@ -87,15 +87,19 @@
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 8px;
   min-height: 32px;
   font-weight: 600;
   color: var(--cream);
   letter-spacing: 0.01em;
 }
+.status-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
 .reset {
-  position: absolute;
-  right: 0;
   font-family: var(--sans);
   font-weight: 700;
   font-size: 13px;
@@ -129,16 +133,34 @@ section {
   background: rgba(0, 0, 0, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
-/* 내 차례 = 내 쪽 테이블에 따뜻한 스포트라이트 */
-.me.active {
+/* 현재 차례인 사람의 섹션 = 금빛 테두리 + 스포트라이트 */
+.opp.active, .me.active {
   background: radial-gradient(120% 140% at 50% 120%, rgba(242, 200, 121, 0.22), rgba(0, 0, 0, 0.14) 70%);
-  box-shadow: inset 0 0 0 1px rgba(242, 200, 121, 0.4);
+  border-color: var(--turn);
+  box-shadow: inset 0 0 0 2px var(--turn), 0 0 16px rgba(242, 200, 121, 0.35);
 }
-.who { font-weight: 700; margin-bottom: clamp(3px, 1vw, 8px); color: var(--cream); }
+.who { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: clamp(3px, 1vw, 8px); color: var(--cream); }
+.turnbadge {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--gold-deep);
+  background: linear-gradient(180deg, #ffe6a8, var(--turn));
+  padding: 2px 8px;
+  border-radius: 999px;
+}
 .row { display: flex; width: 100%; gap: clamp(5px, 2vw, 18px); flex-wrap: nowrap; align-items: flex-end; justify-content: space-between; }
 /* 상대(위) = 미러: Stock 왼쪽, Discard 오른쪽 / 나(아래) = Discard 왼쪽, Stock 오른쪽 */
 .opp .row { flex-direction: row-reverse; }
 .discards { display: flex; gap: clamp(4px, 1.5vw, 8px); }
+/* 디스카드 스택: 카드가 위로 조금씩 겹쳐 윗단 숫자가 보임 */
+.discardpile {
+  position: relative;
+  flex: none;
+  width: var(--cw);
+  height: calc(var(--ch) + (var(--n) - 1) * var(--peek));
+}
+.stackcard { position: absolute; left: 0; top: calc(var(--i) * var(--peek)); }
 .building {
   flex: 1;
   display: flex; gap: clamp(5px, 2vw, 12px); justify-content: center; align-items: center; flex-wrap: nowrap;

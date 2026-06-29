@@ -3,12 +3,7 @@ import { socket } from './socket';
 import type { View, Source, Card, Move } from '../shared/src/engine';
 import './App.css';
 
-function label(c: Card | null): string {
-  if (c === null) return '';
-  return c === 0 ? 'S' : String(c);
-}
-
-// 와일드(Skip-Bo)는 고양이 사진 + 위에 SKIP-BO, 그 외엔 숫자
+// 와일드(Skip-Bo)는 고양이 사진 + 위에 SKIP-BO, 그 외엔 숫자(가운데 큰 숫자 + 양 모서리 작은 숫자)
 function cardFace(c: Card | null) {
   if (c === 0) {
     return (
@@ -18,8 +13,19 @@ function cardFace(c: Card | null) {
       </span>
     );
   }
-  return label(c);
+  if (c === null) return '';
+  return (
+    <>
+      <span className="corner tl">{c}</span>
+      <span className="big">{c}</span>
+      <span className="corner br">{c}</span>
+    </>
+  );
 }
+
+// 값 구간별 색: 1–4 파랑 / 5–8 초록 / 9–12 빨강
+const numColor = (c: Card | null) =>
+  typeof c === 'number' && c >= 1 ? (c <= 4 ? ' blue' : c <= 8 ? ' green' : ' red') : '';
 
 const srcKey = (s: Source) => (s.from === 'hand' ? `h${s.index}` : s.from === 'discard' ? `d${s.pile}` : 's');
 
@@ -36,9 +42,11 @@ function CardBox({
 }) {
   return (
     <div
-      className={`card${c === 0 ? ' wild' : ''}${empty ? ' empty' : ''}${onDragStart ? ' draggable' : ''}${dim ? ' dim' : ''}`}
+      className={`card${c === 0 ? ' wild' : ''}${empty ? '' : numColor(c)}${empty ? ' empty' : ''}${onDragStart ? ' draggable' : ''}${dim ? ' dim' : ''}`}
       data-drop={drop?.kind}
       data-index={drop?.index}
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
       onPointerDown={onDragStart}
     >
       {cardFace(c)}
@@ -119,9 +127,16 @@ export default function App() {
       // 유효한 곳에 놓음 → 서버 응답 대기(pending). 아니면 → 원위치로 복귀(return).
       setDrag((d) => (d ? (emitted ? { ...d, phase: 'pending' } : { ...d, x: d.ox, y: d.oy, phase: 'return' }) : d));
     };
+    // 터치에서 OS가 제스처를 가로채면 pointerup 대신 pointercancel이 온다 → 원위치 복귀
+    const cancel = () => setDrag((d) => (d ? { ...d, x: d.ox, y: d.oy, phase: 'return' } : d));
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointercancel', cancel);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+    };
   }, [drag?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 복귀 애니메이션(0.2s)이 끝나면 유령 제거
@@ -187,10 +202,9 @@ export default function App() {
       <section className="opp">
         <div className="who">{v.opp.name}</div>
         <div className="row">
-          <div className="pilegroup"><small>Hand {v.opp.handCount}</small><CardBox c={null} empty /></div>
           <div className="discards">
             {v.opp.discard.map((d, i) => (
-              <div className="pilegroup" key={i}><small>Discard {i + 1}</small><CardBox c={d.length ? d[d.length - 1] : null} empty={!d.length} /></div>
+              <div className="pilegroup" key={i}><CardBox c={d.length ? d[d.length - 1] : null} empty={!d.length} /></div>
             ))}
           </div>
           <div className="pilegroup"><small>Stock {v.opp.stock.count}</small><CardBox c={v.opp.stock.top} empty={v.opp.stock.top === null} /></div>
@@ -200,7 +214,6 @@ export default function App() {
       <section className="building">
         {v.building.map((b, i) => (
           <div className="pilegroup" key={i}>
-            <small>Build {i + 1} · next {b.length + 1 > 12 ? '—' : b.length + 1}</small>
             <CardBox c={b.length ? b[b.length - 1] : null} empty={!b.length} drop={{ kind: 'building', index: i }} />
           </div>
         ))}
@@ -211,7 +224,7 @@ export default function App() {
         <div className="row">
           <div className="discards">
             {v.me.discard.map((d, i) => (
-              <div className="pilegroup" key={i}><small>Discard {i + 1}</small>
+              <div className="pilegroup" key={i}>
                 <CardBox
                   c={d.length ? d[d.length - 1] : null}
                   empty={!d.length}
@@ -244,7 +257,7 @@ export default function App() {
       </section>
 
       {drag && (
-        <div className={`card ghost${drag.card === 0 ? ' wild' : ''}${drag.phase === 'return' ? ' returning' : ''}`} style={{ left: drag.x, top: drag.y }}>
+        <div className={`card ghost${drag.card === 0 ? ' wild' : ''}${numColor(drag.card)}${drag.phase === 'return' ? ' returning' : ''}`} style={{ left: drag.x, top: drag.y }}>
           {cardFace(drag.card)}
         </div>
       )}

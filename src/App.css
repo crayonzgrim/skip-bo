@@ -149,6 +149,31 @@ section {
   padding: 2px 8px;
   border-radius: 999px;
 }
+.endturn {
+  margin-left: auto;
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: 13px;
+  padding: 6px 16px;
+  border-radius: 9px;
+  border: none;
+  cursor: pointer;
+  color: var(--ink);
+  background: linear-gradient(180deg, #ffe6a8, var(--turn));
+  box-shadow: 0 2px 0 #b9842e, 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+.endturn:active { transform: translateY(2px); box-shadow: 0 0 0 #b9842e; }
+.endturn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; filter: grayscale(0.5); }
+
+/* 중앙 드로우 덱: 뒷면 카드 + 남은 장수 */
+.card.deck {
+  background: repeating-linear-gradient(45deg, #5a4030 0 6px, #4a3525 6px 12px);
+  color: var(--cream);
+  border-color: var(--wood-edge);
+  font-size: clamp(14px, 4.5vw, 20px);
+  font-weight: 800;
+}
+.deckgroup small { color: var(--cream-dim); }
 .row { display: flex; width: 100%; gap: clamp(5px, 2vw, 18px); flex-wrap: nowrap; align-items: flex-end; justify-content: space-between; }
 /* 상대(위) = 미러: Stock 왼쪽, Discard 오른쪽 / 나(아래) = Discard 왼쪽, Stock 오른쪽 */
 .opp .row { flex-direction: row-reverse; }

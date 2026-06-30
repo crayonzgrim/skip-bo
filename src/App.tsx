@@ -233,7 +233,7 @@ export default function App() {
         </div>
       )}
       <div className="status">
-        <span>{myTurn ? '🟢 Your turn' : "⚪ Opponent's turn"} · Deck {v.drawCount}{msg && ' · ' + msg}</span>
+        <span>{myTurn ? '🟢 Your turn' : "⚪ Opponent's turn"}{msg && ' · ' + msg}</span>
         <div className="status-actions">
           <button className="reset" onClick={() => { if (confirm('Restart from scratch? Cards will be reshuffled for both players.')) socket.emit('restart'); }}>Reset</button>
           <button className="reset" onClick={() => { if (confirm('처음 화면으로? 두 좌석(A·B)을 비우고 진행 중인 게임을 끝냅니다.')) socket.emit('clearSeats'); }}>처음으로</button>
@@ -258,10 +258,24 @@ export default function App() {
             <CardBox c={b.length ? b[b.length - 1] : null} empty={!b.length} drop={{ kind: 'building', index: i }} />
           </div>
         ))}
+        <div className="pilegroup deckgroup">
+          <small>Deck</small>
+          <div className="card deck">{v.drawCount}</div>
+        </div>
       </section>
 
       <section className={`me${myTurn ? ' active' : ''}`}>
-        <div className="who">{v.me.name} (you){myTurn && <span className="turnbadge">● 현재 턴</span>}</div>
+        <div className="who">{v.me.name} (you){myTurn && <span className="turnbadge">● 현재 턴</span>}
+          {myTurn && (
+            <button
+              className="endturn"
+              disabled={v.me.hand.length > 0 && !v.discarded}
+              onClick={() => socket.emit('move', { type: 'endTurn' } satisfies Move)}
+            >
+              턴 종료
+            </button>
+          )}
+        </div>
         <div className="row">
           <div className="discards">
             {v.me.discard.map((d, i) => (

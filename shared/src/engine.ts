@@ -23,6 +23,7 @@ export interface Game {
   drawPile: Card[];
   completed: Card[];  // cards from completed building piles; reshuffled into drawPile when it runs dry
   turn: number;       // 0 or 1
+  discardedThisTurn: boolean; // 턴 종료 가능 조건: 손패가 0이 아니면 1장 이상 버려야 함
   winner: string | null; // player id
 }
 
@@ -33,7 +34,8 @@ export type Source =
 
 export type Move =
   | { type: 'play'; source: Source; building: number }
-  | { type: 'discard'; hand: number; pile: number };
+  | { type: 'discard'; hand: number; pile: number }
+  | { type: 'endTurn' };
 
 function shuffle<T>(a: T[]): T[] {
   for (let i = a.length - 1; i > 0; i--) {
@@ -65,6 +67,7 @@ export function newGame(p0: { id: string; name: string }, p1: { id: string; name
     drawPile: deck,
     completed: [],
     turn: 0,
+    discardedThisTurn: false,
     winner: null,
   };
   refill(g, 0); // current player draws up to 5
@@ -131,13 +134,21 @@ export function apply(g: Game, seat: number, m: Move): void {
     return;
   }
 
-  // discard → ends the turn
-  if (m.hand < 0 || m.hand >= p.hand.length) throw new Error('bad hand index');
-  if (m.pile < 0 || m.pile >= N_DISCARD) throw new Error('bad discard pile');
-  const [c] = p.hand.splice(m.hand, 1);
-  p.discard[m.pile].push(c);
+  // discard → 손패 카드를 더미로 옮길 뿐, 턴은 끝나지 않는다(여러 장 가능)
+  if (m.type === 'discard') {
+    if (m.hand < 0 || m.hand >= p.hand.length) throw new Error('bad hand index');
+    if (m.pile < 0 || m.pile >= N_DISCARD) throw new Error('bad discard pile');
+    const [c] = p.hand.splice(m.hand, 1);
+    p.discard[m.pile].push(c);
+    g.discardedThisTurn = true;
+    return;
+  }
+
+  // endTurn → 상대에게 넘김. 손패가 남아있으면 이번 턴에 1장 이상 버려야 함.
+  if (p.hand.length > 0 && !g.discardedThisTurn) throw new Error('must discard before ending turn');
   g.turn = 1 - g.turn;
-  refill(g, g.turn);
+  g.discardedThisTurn = false;
+  refill(g, g.turn); // 새 턴 플레이어 손패를 5장으로 채움
 }
 
 // ---- view: redacted per-seat state sent over the wire (hides opponent hand & buried stock) ----
@@ -145,6 +156,7 @@ export interface View {
   seat: number;
   turn: number;
   winner: string | null;
+  discarded: boolean; // 현재 턴 플레이어가 이번 턴에 디스카드했는지 (턴 종료 버튼 활성화용)
   drawCount: number;
   building: Card[][];
   me: { name: string; stock: { top: Card | null; count: number }; hand: Card[]; discard: Card[][] };
@@ -155,7 +167,7 @@ export function view(g: Game, seat: number): View {
   const me = g.players[seat], opp = g.players[1 - seat];
   const top = (s: Card[]) => (s.length ? s[s.length - 1] : null);
   return {
-    seat, turn: g.turn, winner: g.winner, drawCount: g.drawPile.length,
+    seat, turn: g.turn, winner: g.winner, discarded: g.discardedThisTurn, drawCount: g.drawPile.length,
     building: g.building,
     me: { name: me.name, stock: { top: top(me.stock), count: me.stock.length }, hand: me.hand, discard: me.discard },
     opp: { name: opp.name, stock: { top: top(opp.stock), count: opp.stock.length }, handCount: opp.hand.length, discard: opp.discard },
@@ -176,9 +188,19 @@ export function demo(): void {
   try { apply(g, 1, { type: 'play', source: { from: 'hand', index: 0 }, building: 0 }); } catch { threw = true; }
   console.assert(threw, 'rejects off-turn');
 
+  let blocked = false;
+  try { apply(g, 0, { type: 'endTurn' }); } catch { blocked = true; }
+  console.assert(blocked, 'cannot end turn before discarding');
+
   apply(g, 0, { type: 'discard', hand: 0, pile: 0 });
-  console.assert(g.turn === 1, 'turn passed on discard');
-  console.assert(g.players[1].hand.length === HAND_SIZE, 'next player refilled');
+  console.assert(g.turn === 0, 'discard does NOT end turn');
+  console.assert(g.discardedThisTurn, 'discard flagged');
+  apply(g, 0, { type: 'discard', hand: 0, pile: 0 });
+  console.assert(g.turn === 0, 'can discard multiple times');
+
+  apply(g, 0, { type: 'endTurn' });
+  console.assert(g.turn === 1, 'endTurn passes turn');
+  console.assert(g.players[1].hand.length === HAND_SIZE, 'next player refilled to 5');
 
   g.turn = 1; g.players[1].stock = [1]; g.players[1].hand = [0, 0, 0, 0, 0]; g.building[1] = [];
   apply(g, 1, { type: 'play', source: { from: 'stock' }, building: 1 });

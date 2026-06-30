@@ -29,6 +29,25 @@
   outline: none;
 }
 .join input:focus-visible { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(230, 179, 90, 0.4); }
+.stockpick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--sans);
+  font-weight: 700;
+  color: var(--cream);
+}
+.stockpick select {
+  font-family: var(--sans);
+  font-size: 17px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 2px solid var(--paper-edge);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
 .seatpick { display: flex; gap: 14px; }
 .join button, .banner button {
   font-family: var(--sans);

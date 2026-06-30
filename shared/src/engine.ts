@@ -2,7 +2,7 @@
 // Card encoding: 1..12 = number cards, 0 = Skip-Bo wild (kept as plain numbers → JSON-trivial state).
 
 export const SKIPBO = 0;
-export const STOCK_SIZE = 30; // ponytail: 2-player long game; drop to 20/10 for shorter matches
+export const STOCK_SIZE = 20; // 기본 스톡 장수(입장 화면에서 변경 가능)
 export const HAND_SIZE = 5;
 export const N_BUILD = 4;
 export const N_DISCARD = 4;
@@ -52,12 +52,12 @@ export function buildDeck(): Card[] {
   return shuffle(d);
 }
 
-export function newGame(p0: { id: string; name: string }, p1: { id: string; name: string }): Game {
+export function newGame(p0: { id: string; name: string }, p1: { id: string; name: string }, stockSize: number = STOCK_SIZE): Game {
   const deck = buildDeck();
   const mk = (p: { id: string; name: string }): Player => ({
     id: p.id,
     name: p.name,
-    stock: deck.splice(0, STOCK_SIZE),
+    stock: deck.splice(0, stockSize),
     hand: [],
     discard: [[], [], [], []],
   });

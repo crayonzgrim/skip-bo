@@ -86,6 +86,7 @@ function DiscardPile({
 
 export default function App() {
   const [name, setName] = useState(() => sessionStorage.getItem('name') ?? '');
+  const [stock, setStock] = useState(() => Number(sessionStorage.getItem('stock')) || 20);
   const [joined, setJoined] = useState(() => sessionStorage.getItem('seat') !== null);
   const [v, setV] = useState<View | null>(null);
   const [msg, setMsg] = useState('Connecting…');
@@ -186,7 +187,8 @@ export default function App() {
   const join = (seat: number) => {
     sessionStorage.setItem('name', name);
     sessionStorage.setItem('seat', String(seat));
-    socket.emit('join', { name, seat });
+    sessionStorage.setItem('stock', String(stock));
+    socket.emit('join', { name, seat, stock });
     setJoined(true);
   };
   const myTurn = !!v && v.turn === v.seat && !v.winner;
@@ -206,6 +208,12 @@ export default function App() {
     return (
       <div className="join">
         <h1>Skip-Bo</h1>
+        <label className="stockpick">
+          Stock size
+          <select value={stock} onChange={(e) => setStock(Number(e.target.value))}>
+            {[10, 15, 20, 25, 30].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
         <div className="seatpick">
           <button onClick={() => join(0)} disabled={!name}>Join as A{seats?.a ? ' · in use' : ''}</button>
@@ -236,12 +244,12 @@ export default function App() {
         <span>{myTurn ? '🟢 Your turn' : "⚪ Opponent's turn"}{msg && ' · ' + msg}</span>
         <div className="status-actions">
           <button className="reset" onClick={() => { if (confirm('Restart from scratch? Cards will be reshuffled for both players.')) socket.emit('restart'); }}>Reset</button>
-          <button className="reset" onClick={() => { if (confirm('처음 화면으로? 두 좌석(A·B)을 비우고 진행 중인 게임을 끝냅니다.')) socket.emit('clearSeats'); }}>처음으로</button>
+          <button className="reset" onClick={() => { if (confirm('Return to start? This frees both seats (A·B) and ends the game in progress.')) socket.emit('clearSeats'); }}>Home</button>
         </div>
       </div>
 
       <section className={`opp${oppTurn ? ' active' : ''}`}>
-        <div className="who">{v.opp.name}{oppTurn && <span className="turnbadge">● 현재 턴</span>}</div>
+        <div className="who">{v.opp.name}{oppTurn && <span className="turnbadge">● Turn</span>}</div>
         <div className="row">
           <div className="discards">
             {v.opp.discard.map((d, i) => (
@@ -265,14 +273,14 @@ export default function App() {
       </section>
 
       <section className={`me${myTurn ? ' active' : ''}`}>
-        <div className="who">{v.me.name} (you){myTurn && <span className="turnbadge">● 현재 턴</span>}
+        <div className="who">{v.me.name} (you){myTurn && <span className="turnbadge">● Turn</span>}
           {myTurn && (
             <button
               className="endturn"
               disabled={v.me.hand.length > 0 && !v.discarded}
               onClick={() => socket.emit('move', { type: 'endTurn' } satisfies Move)}
             >
-              턴 종료
+              End Turn
             </button>
           )}
         </div>

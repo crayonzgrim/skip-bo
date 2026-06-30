@@ -1,7 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { newGame, apply, view, type Game, type Move } from '../../shared/src/engine';
+import { newGame, apply, view, STOCK_SIZE, type Game, type Move } from '../../shared/src/engine';
 
 const app = express();
 const http = createServer(app);
@@ -12,6 +12,7 @@ app.get('/', (_req, res) => { res.send('skip-bo server up'); });
 
 // ponytail: single global game in memory — only ever 2 players. No rooms, no DB.
 let game: Game | null = null;
+let stockSize = STOCK_SIZE; // 입장 시 선택 → 다음 새 게임에 적용
 const seats: (string | null)[] = [null, null]; // socket.id per seat
 const names: string[] = ['P1', 'P2'];
 
@@ -37,7 +38,7 @@ function sweep() {
 function startGame() {
   sweep();
   if (seats[0] && seats[1]) {
-    game = newGame({ id: seats[0]!, name: names[0] }, { id: seats[1]!, name: names[1] });
+    game = newGame({ id: seats[0]!, name: names[0] }, { id: seats[1]!, name: names[1] }, stockSize);
     broadcast();
   }
 }
@@ -53,8 +54,9 @@ io.on('connection', (socket) => {
 
   // seat 0 = A, seat 1 = B. 그 좌석에 마지막으로 들어온 사람이 차지(last-writer-wins).
   // 재접속 시 옛 소켓의 disconnect 처리가 늦어도 그냥 새 소켓이 좌석을 되찾으므로 끊겨도 안전.
-  socket.on('join', ({ name, seat }: { name: string; seat: number }) => {
+  socket.on('join', ({ name, seat, stock }: { name: string; seat: number; stock?: number }) => {
     if (seat !== 0 && seat !== 1) return;
+    if (typeof stock === 'number' && isFinite(stock)) stockSize = Math.max(5, Math.min(30, Math.floor(stock)));
     seats[seat] = socket.id;
     names[seat] = name || (seat === 0 ? 'A' : 'B');
 

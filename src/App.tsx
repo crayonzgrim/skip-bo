@@ -27,22 +27,24 @@ function cardFace(c: Card | null) {
 const numColor = (c: Card | null) =>
   typeof c === 'number' && c >= 1 ? (c <= 4 ? ' blue' : c <= 8 ? ' green' : ' red') : '';
 
-const srcKey = (s: Source) => (s.from === 'hand' ? `h${s.index}` : s.from === 'discard' ? `d${s.pile}` : 's');
+const srcKey = (s: Source) =>
+  s.from === 'hand' ? `h${s.index}` : s.from === 'discard' ? `d${s.pile}` : s.from === 'building' ? `b${s.pile}` : 's';
 
-type Drop = { kind: 'building' | 'discard'; index: number };
+type Drop = { kind: 'building' | 'discard' | 'hand'; index: number };
 
 function CardBox({
-  c, empty, drop, onDragStart, dim,
+  c, empty, drop, onDragStart, dim, wildTag,
 }: {
   c: Card | null;
   empty?: boolean;
   drop?: Drop;
   onDragStart?: (e: React.PointerEvent) => void;
   dim?: boolean;
+  wildTag?: boolean; // 빌딩 위에서 와일드가 이 숫자를 대신함을 표시
 }) {
   return (
     <div
-      className={`card${c === 0 ? ' wild' : ''}${empty ? '' : numColor(c)}${empty ? ' empty' : ''}${onDragStart ? ' draggable' : ''}${dim ? ' dim' : ''}`}
+      className={`card${c === 0 ? ' wild' : ''}${empty ? '' : numColor(c)}${empty ? ' empty' : ''}${onDragStart ? ' draggable' : ''}${dim ? ' dim' : ''}${wildTag ? ' wildtag' : ''}`}
       data-drop={drop?.kind}
       data-index={drop?.index}
       draggable={false}
@@ -50,6 +52,7 @@ function CardBox({
       onPointerDown={onDragStart}
     >
       {cardFace(c)}
+      {wildTag && <span className="stag">S</span>}
     </div>
   );
 }
@@ -152,6 +155,12 @@ export default function App() {
           } else {
             // 규칙: 스톡·버림 카드는 버릴 수 없다. 손패만 버림 가능.
             setMsg('Only hand cards can be discarded.');
+          }
+        } else if (el.dataset.drop === 'hand') {
+          // 이번 턴에 낸 빌딩 카드를 손(원래 출처)으로 회수
+          if (start.from === 'building') {
+            socket.emit('move', { type: 'takeBack', building: start.pile } satisfies Move);
+            emitted = true;
           }
         }
       }
@@ -261,11 +270,22 @@ export default function App() {
       </section>
 
       <section className="building">
-        {v.building.map((b, i) => (
-          <div className="pilegroup" key={i}>
-            <CardBox c={b.length ? b[b.length - 1] : null} empty={!b.length} drop={{ kind: 'building', index: i }} />
-          </div>
-        ))}
+        {v.building.map((b, i) => {
+          const topCard = b.length ? b[b.length - 1] : null;
+          const canTake = myTurn && v.undoable[i];
+          return (
+            <div className="pilegroup" key={i}>
+              <CardBox
+                c={b.length || null}                 // 더미가 대신하는 숫자 = 길이 (와일드도 이 숫자로 표시)
+                wildTag={topCard === 0}               // top이 와일드면 'S' 표식
+                empty={!b.length}
+                drop={{ kind: 'building', index: i }}
+                onDragStart={canTake ? dragHandler({ from: 'building', pile: i }, topCard) : undefined}
+                dim={isDim({ from: 'building', pile: i })}
+              />
+            </div>
+          );
+        })}
         <div className="pilegroup deckgroup">
           <small>Deck</small>
           <div className="card deck">{v.drawCount}</div>
@@ -305,7 +325,7 @@ export default function App() {
             />
           </div>
         </div>
-        <div className="hand">
+        <div className={`hand${drag?.source.from === 'building' ? ' droptarget' : ''}`} data-drop="hand" data-index={0}>
           {v.me.hand.map((c, i) => (
             <CardBox
               key={i}

@@ -24,17 +24,20 @@ export interface Game {
   completed: Card[];  // cards from completed building piles; reshuffled into drawPile when it runs dry
   turn: number;       // 0 or 1
   discardedThisTurn: boolean; // 턴 종료 가능 조건: 손패가 0이 아니면 1장 이상 버려야 함
+  placedFrom: Source[][]; // N_BUILD; 이번 턴에 각 빌딩에 쌓은 카드들의 원래 출처(회수용, LIFO)
   winner: string | null; // player id
 }
 
 export type Source =
   | { from: 'hand'; index: number }
   | { from: 'stock' }
-  | { from: 'discard'; pile: number };
+  | { from: 'discard'; pile: number }
+  | { from: 'building'; pile: number }; // 이번 턴에 낸 카드 회수/이동용
 
 export type Move =
   | { type: 'play'; source: Source; building: number }
   | { type: 'discard'; hand: number; pile: number }
+  | { type: 'takeBack'; building: number } // 이번 턴에 낸 빌딩 top을 원래 출처로 되돌림
   | { type: 'endTurn' };
 
 function shuffle<T>(a: T[]): T[] {
@@ -68,6 +71,7 @@ export function newGame(p0: { id: string; name: string }, p1: { id: string; name
     completed: [],
     turn: 0,
     discardedThisTurn: false,
+    placedFrom: [[], [], [], []],
     winner: null,
   };
   refill(g, 0); // current player draws up to 5
@@ -122,15 +126,45 @@ export function apply(g: Game, seat: number, m: Move): void {
 
   if (m.type === 'play') {
     if (m.building < 0 || m.building >= N_BUILD) throw new Error('bad building');
-    const card = takeSource(p, m.source);
-    if (card === undefined) throw new Error('empty source');
     const pile = g.building[m.building];
+
+    // 출처가 빌딩이면(이번 턴에 낸 카드 이동) 원래 출처를 승계, 아니면 그대로 기록
+    let card: Card | undefined;
+    let origin: Source;
+    if (m.source.from === 'building') {
+      const sp = m.source.pile;
+      if (sp < 0 || sp >= N_BUILD) throw new Error('bad building source');
+      if (sp === m.building) throw new Error('same pile');
+      if (g.placedFrom[sp].length === 0) throw new Error('not takeable'); // 이번 턴에 낸 카드만
+      card = g.building[sp][g.building[sp].length - 1];
+      origin = g.placedFrom[sp][g.placedFrom[sp].length - 1];
+    } else {
+      card = takeSource(p, m.source);
+      origin = m.source;
+    }
+    if (card === undefined) throw new Error('empty source');
     if (!canPlay(card, pile)) throw new Error('illegal play');
-    removeSource(p, m.source);
+
+    if (m.source.from === 'building') { g.building[m.source.pile].pop(); g.placedFrom[m.source.pile].pop(); }
+    else removeSource(p, m.source);
     pile.push(card);
-    if (pile.length === 12) { g.completed.push(...pile); g.building[m.building] = []; }
+    g.placedFrom[m.building].push(origin);
+
+    if (pile.length === 12) { g.completed.push(...pile); g.building[m.building] = []; g.placedFrom[m.building] = []; }
     if (p.stock.length === 0) { g.winner = p.id; return; }
     if (p.hand.length === 0) refill(g, seat); // emptied hand → redraw and keep going
+    return;
+  }
+
+  // takeBack → 이번 턴에 낸 빌딩 top을 원래 출처로 되돌림
+  if (m.type === 'takeBack') {
+    if (m.building < 0 || m.building >= N_BUILD) throw new Error('bad building');
+    if (g.placedFrom[m.building].length === 0) throw new Error('nothing to take back');
+    const card = g.building[m.building].pop()!;
+    const origin = g.placedFrom[m.building].pop()!;
+    if (origin.from === 'hand') p.hand.push(card);
+    else if (origin.from === 'stock') p.stock.push(card);
+    else if (origin.from === 'discard') p.discard[origin.pile].push(card);
     return;
   }
 
@@ -146,9 +180,11 @@ export function apply(g: Game, seat: number, m: Move): void {
 
   // endTurn → 상대에게 넘김. 손패가 남아있으면 이번 턴에 1장 이상 버려야 함.
   if (p.hand.length > 0 && !g.discardedThisTurn) throw new Error('must discard before ending turn');
+  refill(g, seat);                 // 종료 즉시 내 손 5장 (#3)
   g.turn = 1 - g.turn;
   g.discardedThisTurn = false;
-  refill(g, g.turn); // 새 턴 플레이어 손패를 5장으로 채움
+  g.placedFrom = [[], [], [], []]; // 넘어간 뒤엔 이전 플레이어 수를 회수 불가
+  refill(g, g.turn);               // 새 턴 플레이어도 5장
 }
 
 // ---- view: redacted per-seat state sent over the wire (hides opponent hand & buried stock) ----
@@ -159,6 +195,7 @@ export interface View {
   discarded: boolean; // 현재 턴 플레이어가 이번 턴에 디스카드했는지 (턴 종료 버튼 활성화용)
   drawCount: number;
   building: Card[][];
+  undoable: boolean[]; // 각 빌딩 top을 현재 턴 플레이어가 회수 가능한지
   me: { name: string; stock: { top: Card | null; count: number }; hand: Card[]; discard: Card[][] };
   opp: { name: string; stock: { top: Card | null; count: number }; handCount: number; discard: Card[][] };
 }
@@ -169,6 +206,7 @@ export function view(g: Game, seat: number): View {
   return {
     seat, turn: g.turn, winner: g.winner, discarded: g.discardedThisTurn, drawCount: g.drawPile.length,
     building: g.building,
+    undoable: g.placedFrom.map((a) => a.length > 0),
     me: { name: me.name, stock: { top: top(me.stock), count: me.stock.length }, hand: me.hand, discard: me.discard },
     opp: { name: opp.name, stock: { top: top(opp.stock), count: opp.stock.length }, handCount: opp.hand.length, discard: opp.discard },
   };
@@ -183,6 +221,16 @@ export function demo(): void {
   g.players[0].hand[0] = 1; // building[0] empty → needs 1
   apply(g, 0, { type: 'play', source: { from: 'hand', index: 0 }, building: 0 });
   console.assert(g.building[0].length === 1, 'played to building');
+  console.assert(g.placedFrom[0].length === 1, 'play recorded for take-back');
+
+  // 회수: 이번 턴에 낸 카드를 손으로 되돌림
+  const handBefore = g.players[0].hand.length;
+  apply(g, 0, { type: 'takeBack', building: 0 });
+  console.assert(g.building[0].length === 0, 'take-back removed from building');
+  console.assert(g.players[0].hand.length === handBefore + 1, 'take-back returned to hand');
+  console.assert(g.placedFrom[0].length === 0, 'take-back cleared record');
+  g.players[0].hand[0] = 1;
+  apply(g, 0, { type: 'play', source: { from: 'hand', index: 0 }, building: 0 }); // 다시 냄
 
   let threw = false;
   try { apply(g, 1, { type: 'play', source: { from: 'hand', index: 0 }, building: 0 }); } catch { threw = true; }
